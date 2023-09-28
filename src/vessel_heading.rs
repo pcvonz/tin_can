@@ -14,19 +14,31 @@ pub enum DirectionReference {
 #[derive(Debug)]
 pub struct VesselHeading {
     pub sid: u8,
-    pub heading: Rad<u16>,
-    pub deviation: Rad<i16>,
-    pub variation: Rad<i16>,
+    pub heading: Rad,
+    pub deviation: Rad,
+    pub variation: Rad,
     pub reference: Option<DirectionReference>,
 }
 
-pub fn parse_vessel_heading(i: BitInput) -> IResult<BitInput, VesselHeading> {
+impl VesselHeading {
+    pub fn new() -> Self {
+        VesselHeading {
+            sid: 0,
+            reference: Some(DirectionReference::True),
+            heading: Rad::new(0),
+            deviation: Rad::from_i16(0),
+            variation: Rad::from_i16(0)
+        }
+
+    }
+}
+
+fn parse_vessel_heading(i: BitInput) -> IResult<BitInput, VesselHeading> {
         let (i, sid) = take_byte(i)?;
         let (i, heading) = take_u16(i)?;
         let (i, deviation) = take_i16(i)?;
         let (i, variation) = take_i16(i)?;
         let (i, reference) = take_two_bits(i)?;
-        println!("ref bit: {}", reference);
 
         let system_time = VesselHeading {
             sid,
@@ -46,8 +58,7 @@ impl Message<VesselHeading> for VesselHeading {
             Ok((_, system_time)) => {
                 Ok(system_time)
             }
-            Err(e) => {
-                println!("{:?}", e);
+            Err(_e) => {
                 Err(NmeaError::ParseError)
             }
         }
@@ -75,8 +86,7 @@ mod tests {
         // 00000110 v
         // 11 111101
 
-        for i in vessel_heading_data {
-            println!("{:08b}", i);
+        for _i in vessel_heading_data {
         }
         let parsed_data = VesselHeading::get_data(&vessel_heading_data);
         let data = parsed_data.unwrap();

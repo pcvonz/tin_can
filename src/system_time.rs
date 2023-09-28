@@ -40,8 +40,7 @@ impl Message<SystemTime> for SystemTime {
             Ok((_, system_time)) => {
                 Ok(system_time)
             }
-            Err(e) => {
-                println!("{:?}", e);
+            Err(_e) => {
                 Err(NmeaError::ParseError)
             }
         }
