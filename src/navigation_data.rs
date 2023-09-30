@@ -1,6 +1,6 @@
 use nom::{IResult, AsBytes};
 use num_traits::FromPrimitive;
-use crate::{NmeaError, parse::{self, take_two_bits, take_three_bits, take_five_bits}, vessel_heading::DirectionReference, rad::Rad, bearing_type::BearingType, FastPacketMessage};
+use crate::{NmeaError, parse::{self, take_two_bits, take_three_bits, take_five_bits}, vessel_heading::DirectionReference, rad::Rad, bearing_type::BearingType, FastPacketMessage, nmea_frame::NavigationDataFrame};
 use parse::{BitInput, take_byte, take_u32, take_u16};
 
 
@@ -68,9 +68,10 @@ fn parse_navigation_data(i: BitInput) -> IResult<BitInput,  (
 }
 
 
-impl FastPacketMessage<NavigationData, [u8; 64]> for NavigationData {
-    fn parse_frame(&mut self, frame: &[u8]) -> Result<(), ()> {
-        let parse_result: IResult<&[u8], (u8, u8)>  = nom::bits::bits(parse_frame_and_sequence)(frame);
+impl FastPacketMessage<NavigationDataFrame, [u8; 64]> for NavigationData {
+    fn parse_frame(&mut self, frame: NavigationDataFrame) -> Result<(), ()> {
+        let data = frame.data;
+        let parse_result: IResult<&[u8], (u8, u8)>  = nom::bits::bits(parse_frame_and_sequence)(&data);
         let (i, ( sequence, frame_count )) = parse_result.unwrap();
 
         match frame_count {
@@ -244,7 +245,9 @@ mod tests {
 
         let mut navigation_data  = NavigationData::new();
         for data in nav_data {
-            let _ = navigation_data.parse_frame(data.as_bytes()).unwrap();
+            let bytes = data.as_bytes();
+            let data: [u8; 8] = bytes[0..8].try_into().unwrap();
+            let _ = navigation_data.parse_frame(NavigationDataFrame { data }).unwrap();
         }
         let _ = navigation_data.parse_navigation_data();
         assert_eq!(1.41, navigation_data.waypoint_closing_velocity.unwrap());

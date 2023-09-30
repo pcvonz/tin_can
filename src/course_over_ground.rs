@@ -1,8 +1,6 @@
 use nom::IResult;
-    
 use num_traits::FromPrimitive;
-
-use crate::{Message, NmeaError, parse::{take_byte, take_u16, BitInput, take_two_bits, take_nibble}, rad::Rad, vessel_heading::DirectionReference};
+use crate::{Message, NmeaError, parse::{take_byte, take_u16, BitInput, take_two_bits, take_nibble}, rad::Rad, vessel_heading::DirectionReference, nmea_frame::COGSOGRapidUpdateFrame};
 
 #[derive(Debug)]
 pub struct CourseOverGround {
@@ -42,9 +40,10 @@ fn parse_course_over_ground(i: BitInput) -> IResult<BitInput, CourseOverGround> 
         Ok((i, system_time))
 }
 
-impl Message<CourseOverGround> for CourseOverGround {
-    fn get_data(input: &[u8]) ->  Result<CourseOverGround, NmeaError> {
-        let parse_result: IResult<&[u8], CourseOverGround> = nom::bits::bits(parse_course_over_ground)(input);
+impl Message<CourseOverGround, COGSOGRapidUpdateFrame> for CourseOverGround {
+    fn get_data(frame: COGSOGRapidUpdateFrame) ->  Result<CourseOverGround, NmeaError> {
+        let data = frame.data;
+        let parse_result: IResult<&[u8], CourseOverGround> = nom::bits::bits(parse_course_over_ground)(&data);
         match parse_result {
             Ok((_, system_time)) => {
                 Ok(system_time)
@@ -56,28 +55,14 @@ impl Message<CourseOverGround> for CourseOverGround {
     }
 }
 
-
-
-// [142, 255, 255, 255, 127, 187, 6, 253]
-
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[test]
     fn parses_cog() {
         let cog_data = [0b11100010, 255, 255, 255, 255, 255, 255, 255];
-        // 10011111 sid
-        // 11111111 h
-        // 11111111 h
-        // 11111111 d
-        // 01111111 d
-        // 10111001 v
-        // 00000110 v
-        // 11 111101
-
-        let parsed_data = CourseOverGround::get_data(&cog_data);
+        let parsed_data = CourseOverGround::get_data(COGSOGRapidUpdateFrame { data: cog_data });
         let data = parsed_data.unwrap();
         // TODO: Why is it error?
         assert_eq!(DirectionReference::Error, data.cog_reference.unwrap());

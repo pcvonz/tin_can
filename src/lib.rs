@@ -1,5 +1,6 @@
 // #![cfg_attr(not(test), no_std)]
 
+use crate::nmea_frame::NmeaFrame;
 use bitfield::bitfield;
 mod system_time;
 mod parse;
@@ -10,22 +11,18 @@ pub mod navigation_data;
 pub mod bearing_type;
 pub mod date;
 pub mod course_over_ground;
+pub mod nmea_frame;
+use nmea_frame::{NavigationDataFrame, VesselHeadingFrame, SystemTimeFrame, COGSOGRapidUpdateFrame};
 use pgn::PGN;
 use num_traits::FromPrimitive;
 
 pub trait FastPacketMessage<T, S> {
     fn get_data(&mut self) -> Result<(), NmeaError>;
-    fn parse_frame(&mut self, data: &[u8]) -> Result<(), ()>;
+    fn parse_frame(&mut self, data: T) -> Result<(), ()>;
 }
 
-pub trait Message<T> {
-    fn get_data(data: &[u8]) -> Result<T, NmeaError>;
-}
-
-pub enum NmeaData {
-    SystemTime(system_time::SystemTime),
-    VesselHeading(vessel_heading::VesselHeading),
-    NavigationData(navigation_data::NavigationData),
+pub trait Message<T, S> {
+    fn get_data(data: S) -> Result<T, NmeaError>;
 }
 
 bitfield! {
@@ -77,27 +74,31 @@ impl NmeaId {
         FromPrimitive::from_u32(pgn)
     }
 
-    // pub fn parse_data(&self, data: &[u8]) -> Result<NmeaData, NmeaError> {
-    //     let pgn = self.get_pgn();
-    //     match pgn {
-    //         Some(PGN::SystemTime) => {
-    //             let system_time = system_time::SystemTime::get_data(data)?;
-    //             Ok(NmeaData::SystemTime(system_time))
-    //         }
-    //         Some(PGN::VesselHeading) => {
-    //             let vessel_heading = vessel_heading::VesselHeading::get_data(data)?;
-    //             Ok(NmeaData::VesselHeading(vessel_heading))
-    //         }
-    //         Some(PGN::NavigationData) => {
-    //             // Convert to array!
-    //             let navigation_data = navigation_data::NavigationData::get_data(data);
-    //             Err(NmeaError::NotImplemented)
-    //         }
-    //         _ => {
-    //             Err(NmeaError::NotImplemented)
-    //         }
-    //     }
-    // }
+    pub fn parse_data(&self, data: &[u8]) -> Result<NmeaFrame, NmeaError> {
+        let pgn = self.get_pgn();
+
+        match pgn {
+            Some(PGN::SystemTime) => {
+                let data: [u8; 8] = data[0..8].try_into().unwrap();
+                Ok(NmeaFrame::SystemTime(SystemTimeFrame{ data }))
+            }
+            Some(PGN::VesselHeading) => {
+                let data: [u8; 8] = data[0..8].try_into().unwrap();
+                Ok(NmeaFrame::VesselHeading(VesselHeadingFrame{ data }))
+            }
+            Some(PGN::NavigationData) => {
+                let data: [u8; 8] = data[0..8].try_into().unwrap();
+                Ok(NmeaFrame::NavigationData(NavigationDataFrame{ data }))
+            }
+            Some(PGN::COGSOGRapidUpdate) => {
+                let data: [u8; 8] = data[0..8].try_into().unwrap();
+                Ok(NmeaFrame::COGSOGRapidUpdate(COGSOGRapidUpdateFrame{ data }))
+            }
+            _ => {
+                Err(NmeaError::NotImplemented)
+            }
+        }
+    }
 }
 
 #[cfg(test)]

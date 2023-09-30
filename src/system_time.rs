@@ -1,7 +1,7 @@
 use nom::IResult;
 use num_derive::FromPrimitive;    
 use num_traits::FromPrimitive;
-use crate::{Message, NmeaError, parse};
+use crate::{Message, NmeaError, parse, nmea_frame::SystemTimeFrame};
 use parse::{BitInput, take_byte, take_nibble, take_u32, take_u16};
 
 #[derive(FromPrimitive, Debug)]
@@ -33,9 +33,10 @@ pub fn parse_system_time(i: BitInput) -> IResult<BitInput, SystemTime> {
         Ok((i, system_time))
 }
 
-impl Message<SystemTime> for SystemTime {
-    fn get_data(input: &[u8]) ->  Result<SystemTime, NmeaError> {
-        let parse_result: IResult<&[u8], SystemTime> = nom::bits::bits(parse_system_time)(input);
+impl Message<SystemTime, SystemTimeFrame,> for SystemTime {
+    fn get_data(frame: SystemTimeFrame) ->  Result<SystemTime, NmeaError> {
+        let data = frame.data;
+        let parse_result: IResult<&[u8], SystemTime> = nom::bits::bits(parse_system_time)(&data);
         match parse_result {
             Ok((_, system_time)) => {
                 Ok(system_time)
@@ -84,7 +85,7 @@ mod tests {
         // 0010 1110 1111 1111 10101001 01001100 00110 0001 0110 1001 0101 0110 0000 0001
         // This is the expected date in binary:
         // 01001100 10101001
-        let parsed_data = SystemTime::get_data(&system_time_data);
+        let parsed_data = SystemTime::get_data( SystemTimeFrame { data: system_time_data });
         let data = parsed_data.unwrap();
         assert_eq!(19625, data.date);
         assert_eq!(2803, data.time.get_seconds());

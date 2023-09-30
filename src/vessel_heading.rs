@@ -1,6 +1,7 @@
 use nom::IResult;
 use num_derive::FromPrimitive;    
 use num_traits::FromPrimitive;
+use crate::nmea_frame::VesselHeadingFrame;
 
 use crate::{Message, NmeaError, parse::{take_byte, take_u16, BitInput, take_i16, take_two_bits}, rad::Rad};
 
@@ -51,9 +52,10 @@ fn parse_vessel_heading(i: BitInput) -> IResult<BitInput, VesselHeading> {
         Ok((i, system_time))
 }
 
-impl Message<VesselHeading> for VesselHeading {
-    fn get_data(input: &[u8]) ->  Result<VesselHeading, NmeaError> {
-        let parse_result: IResult<&[u8], VesselHeading> = nom::bits::bits(parse_vessel_heading)(input);
+impl Message<VesselHeading, VesselHeadingFrame,> for VesselHeading {
+    fn get_data(frame: VesselHeadingFrame) ->  Result<VesselHeading, NmeaError> {
+        let data = frame.data;
+        let parse_result: IResult<&[u8], VesselHeading> = nom::bits::bits(parse_vessel_heading)(&data);
         match parse_result {
             Ok((_, system_time)) => {
                 Ok(system_time)
@@ -66,34 +68,17 @@ impl Message<VesselHeading> for VesselHeading {
 }
 
 
-
-// [142, 255, 255, 255, 127, 187, 6, 253]
-
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[test]
     fn parses_vessel_heading_correctly() {
         let vessel_heading_data = [159, 255, 255, 255, 127, 185, 6, 253];
-        // 10011111 sid
-        // 11111111 h
-        // 11111111 h
-        // 11111111 d
-        // 01111111 d
-        // 10111001 v
-        // 00000110 v
-        // 11 111101
-
-        for _i in vessel_heading_data {
-        }
-        let parsed_data = VesselHeading::get_data(&vessel_heading_data);
+        let parsed_data = VesselHeading::get_data(VesselHeadingFrame{ data: vessel_heading_data });
         let data = parsed_data.unwrap();
         assert_eq!(6.5534997, data.heading.get_radians());
         assert_eq!(3.2767, data.deviation.get_radians());
         assert_eq!(0.1721, data.variation.get_radians());
-        // Something weird here
-        // assert_eq!(Some(DirectionReference::Magnetic),  data.reference);
     }
 }
