@@ -2,19 +2,21 @@
 
 use crate::nmea_frame::NmeaFrame;
 use bitfield::bitfield;
-mod system_time;
+pub mod bearing_type;
+pub mod course_over_ground;
+pub mod date;
+pub mod navigation_data;
+pub mod nmea_frame;
 mod parse;
-pub mod vessel_heading;
 pub mod pgn;
 pub mod rad;
-pub mod navigation_data;
-pub mod bearing_type;
-pub mod date;
-pub mod course_over_ground;
-pub mod nmea_frame;
-use nmea_frame::{NavigationDataFrame, VesselHeadingFrame, SystemTimeFrame, COGSOGRapidUpdateFrame};
-use pgn::PGN;
+mod system_time;
+pub mod vessel_heading;
+use nmea_frame::{
+    COGSOGRapidUpdateFrame, NavigationDataFrame, SystemTimeFrame, VesselHeadingFrame,
+};
 use num_traits::FromPrimitive;
+use pgn::PGN;
 
 pub trait FastPacketMessage<T, S> {
     fn get_data(&mut self) -> Result<(), NmeaError>;
@@ -38,14 +40,14 @@ bitfield! {
 #[derive(Debug)]
 pub enum NmeaPgnFormat {
     PDU1,
-    PDU2
+    PDU2,
 }
 
 #[derive(Debug)]
 pub enum NmeaError {
     ParseError,
     NotImplemented,
-    NotFullyParsed
+    NotFullyParsed,
 }
 
 impl NmeaId {
@@ -60,7 +62,7 @@ impl NmeaId {
     pub fn get_raw_pgn(&self) -> u32 {
         match self.get_format() {
             NmeaPgnFormat::PDU1 => {
-                ((self.reserved_data_page() as u32 ) << 16) | ((self.pf() as u32) << 8)
+                ((self.reserved_data_page() as u32) << 16) | ((self.pf() as u32) << 8)
             }
             NmeaPgnFormat::PDU2 => {
                 ((self.reserved_data_page() as u32) << 16 | (self.pf() as u32) << 8) | self.ps()
@@ -80,23 +82,23 @@ impl NmeaId {
         match pgn {
             Some(PGN::SystemTime) => {
                 let data: [u8; 8] = data[0..8].try_into().unwrap();
-                Ok(NmeaFrame::SystemTime(SystemTimeFrame{ data }))
+                Ok(NmeaFrame::SystemTime(SystemTimeFrame { data }))
             }
             Some(PGN::VesselHeading) => {
                 let data: [u8; 8] = data[0..8].try_into().unwrap();
-                Ok(NmeaFrame::VesselHeading(VesselHeadingFrame{ data }))
+                Ok(NmeaFrame::VesselHeading(VesselHeadingFrame { data }))
             }
             Some(PGN::NavigationData) => {
                 let data: [u8; 8] = data[0..8].try_into().unwrap();
-                Ok(NmeaFrame::NavigationData(NavigationDataFrame{ data }))
+                Ok(NmeaFrame::NavigationData(NavigationDataFrame { data }))
             }
             Some(PGN::COGSOGRapidUpdate) => {
                 let data: [u8; 8] = data[0..8].try_into().unwrap();
-                Ok(NmeaFrame::COGSOGRapidUpdate(COGSOGRapidUpdateFrame{ data }))
+                Ok(NmeaFrame::COGSOGRapidUpdate(COGSOGRapidUpdateFrame {
+                    data,
+                }))
             }
-            _ => {
-                Err(NmeaError::NotImplemented)
-            }
+            _ => Err(NmeaError::NotImplemented),
         }
     }
 }
@@ -122,5 +124,4 @@ mod tests {
         let nmea_id = NmeaId(id);
         assert_eq!(nmea_id.get_pgn(), Some(PGN::VesselHeading));
     }
-    
 }

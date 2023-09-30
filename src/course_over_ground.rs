@@ -1,6 +1,12 @@
+use crate::{
+    nmea_frame::COGSOGRapidUpdateFrame,
+    parse::{take_byte, take_nibble, take_two_bits, take_u16, BitInput},
+    rad::Rad,
+    vessel_heading::DirectionReference,
+    Message, NmeaError,
+};
 use nom::IResult;
 use num_traits::FromPrimitive;
-use crate::{Message, NmeaError, parse::{take_byte, take_u16, BitInput, take_two_bits, take_nibble}, rad::Rad, vessel_heading::DirectionReference, nmea_frame::COGSOGRapidUpdateFrame};
 
 #[derive(Debug)]
 pub struct CourseOverGround {
@@ -16,41 +22,36 @@ impl CourseOverGround {
             sid: 0,
             cog_reference: Some(DirectionReference::True),
             cog: Rad::new(0),
-            sog: 0
+            sog: 0,
         }
-
     }
 }
 
 fn parse_course_over_ground(i: BitInput) -> IResult<BitInput, CourseOverGround> {
-        let (i, sid) = take_byte(i)?;
-        let (i, cog_reference) = take_two_bits(i)?;
-        let (i, _) = take_nibble(i)?;
-        let (i, _) = take_two_bits(i)?;
-        let (i, cog) = take_u16(i)?;
-        let (i, sog) = take_u16(i)?;
+    let (i, sid) = take_byte(i)?;
+    let (i, cog_reference) = take_two_bits(i)?;
+    let (i, _) = take_nibble(i)?;
+    let (i, _) = take_two_bits(i)?;
+    let (i, cog) = take_u16(i)?;
+    let (i, sog) = take_u16(i)?;
 
-        let system_time = CourseOverGround {
-            sid,
-            cog_reference: FromPrimitive::from_u8(cog_reference),
-            cog: Rad::new(cog),
-            sog
-            
-        };
-        Ok((i, system_time))
+    let system_time = CourseOverGround {
+        sid,
+        cog_reference: FromPrimitive::from_u8(cog_reference),
+        cog: Rad::new(cog),
+        sog,
+    };
+    Ok((i, system_time))
 }
 
 impl Message<CourseOverGround, COGSOGRapidUpdateFrame> for CourseOverGround {
-    fn get_data(frame: COGSOGRapidUpdateFrame) ->  Result<CourseOverGround, NmeaError> {
+    fn get_data(frame: COGSOGRapidUpdateFrame) -> Result<CourseOverGround, NmeaError> {
         let data = frame.data;
-        let parse_result: IResult<&[u8], CourseOverGround> = nom::bits::bits(parse_course_over_ground)(&data);
+        let parse_result: IResult<&[u8], CourseOverGround> =
+            nom::bits::bits(parse_course_over_ground)(&data);
         match parse_result {
-            Ok((_, system_time)) => {
-                Ok(system_time)
-            }
-            Err(_e) => {
-                Err(NmeaError::ParseError)
-            }
+            Ok((_, system_time)) => Ok(system_time),
+            Err(_e) => Err(NmeaError::ParseError),
         }
     }
 }
@@ -71,4 +72,3 @@ mod tests {
         assert_eq!(65535, data.sog);
     }
 }
-
